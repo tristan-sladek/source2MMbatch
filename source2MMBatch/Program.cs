@@ -10,6 +10,8 @@ namespace source2MMBatch
         public static string Color { get; set; }
         public static string Normal { get; set; }
         public static string Rough { get; set; }
+        public static string Ambient { get; set; }
+        public static string Metal { get; set; }
         public static string FileType { get; set; }
         public static string Shader { get; set; }
     }
@@ -25,6 +27,8 @@ namespace source2MMBatch
             Extensions.Color = "*_Color";
             Extensions.Normal = "*_Normal";
             Extensions.Rough = "*_Roughness";
+            Extensions.Ambient = "*_AmbientOcclusion";
+            Extensions.Metal = "*_Metalness";
             Extensions.Shader = "simple";
 
             string input;
@@ -89,6 +93,26 @@ namespace source2MMBatch
             if (!input.Equals(""))
                 Extensions.Rough = input;
 
+            Console.WriteLine("Please enter your metalness extension if any (using wildcards), or leave blank to use default. Default: [" + Extensions.Metal + "]");
+            while (input.Length > 0 && !input.Contains("*"))
+            {
+                Console.WriteLine("Please enter an extension containing a wildcard, or leave blank to use the default.");
+                input = Console.ReadLine();
+            }
+            input = Console.ReadLine();
+            if (!input.Equals(""))
+                Extensions.Metal = input;
+
+            Console.WriteLine("Please enter your ambient occlusion extension if any (using wildcards), or leave blank to use default. Default: [" + Extensions.Ambient + "]");
+            while (input.Length > 0 && !input.Contains("*"))
+            {
+                Console.WriteLine("Please enter an extension containing a wildcard, or leave blank to use the default.");
+                input = Console.ReadLine();
+            }
+            input = Console.ReadLine();
+            if (!input.Equals(""))
+                Extensions.Ambient = input;
+
             Directory.CreateDirectory(path + "\\generated_vmat");
 
             MakeMatRec(path, path);            
@@ -122,6 +146,8 @@ namespace source2MMBatch
                 string color = new_path + file_name;
                 string normal = "materials/default/default_normal.tga"; //_n
                 string rough = "materials/default/default_rough.tga";   //_s
+                string ambient = ""; //materials/default/default_ao.tga
+                string metal = ""; //materials/default/default_metal.tga
 
                 string[] normal_search = Directory.GetFiles(path, file_name.Replace(Extensions.Color.Replace("*",""), Extensions.Normal.Replace("*", "")));
                 if (normal_search.Length > 0)
@@ -129,14 +155,20 @@ namespace source2MMBatch
                 string[] rough_search  = Directory.GetFiles(path, file_name.Replace(Extensions.Color.Replace("*", ""), Extensions.Rough.Replace("*", "")));
                 if(rough_search.Length > 0)    
                     rough = new_path + Path.GetFileName(rough_search[0]);
+                string[] metal_search = Directory.GetFiles(path, file_name.Replace(Extensions.Color.Replace("*", ""), Extensions.Metal.Replace("*", "")));
+                if (metal_search.Length > 0) 
+                    metal = new_path + Path.GetFileName(metal_search[0]);
+                string[] ambient_search = Directory.GetFiles(path, file_name.Replace(Extensions.Color.Replace("*", ""), Extensions.Ambient.Replace("*", "")));
+                if (ambient_search.Length > 0)
+                    ambient = new_path + Path.GetFileName(ambient_search[0]);
 
                 switch (Extensions.Shader)
                 {
                     case "simple":
-                        MakeVMFSimple(base_path + "\\generated_vmat\\", file_name.Replace(Extensions.Color.Replace("*", ""), "").Replace(Extensions.FileType, "") + ".vmat", color, normal, rough);
+                        MakeVMFSimple(base_path + "\\generated_vmat\\", file_name.Replace(Extensions.Color.Replace("*", ""), "").Replace(Extensions.FileType, "") + ".vmat", color, normal, rough, metal, ambient);
                         break;
                     case "complex":
-                        MakeVMFComplex(base_path + "\\generated_vmat\\", file_name.Replace(Extensions.Color.Replace("*", ""), "").Replace(Extensions.FileType, "") + ".vmat", color, normal, rough);
+                        MakeVMFComplex(base_path + "\\generated_vmat\\", file_name.Replace(Extensions.Color.Replace("*", ""), "").Replace(Extensions.FileType, "") + ".vmat", color, normal, rough, metal, ambient);
                         break;
                 }
                     
@@ -144,7 +176,7 @@ namespace source2MMBatch
             }
         }
 
-        public static void MakeVMFSimple(string path, string file_name, string color, string normal, string rough)
+        public static void MakeVMFSimple(string path, string file_name, string color, string normal, string rough, string metal, string ambient)
         {
             string template_simple = "//THIS FILE WAS GENERATED BY TRIST'S BATCH TOOL \n" +
             "Layer0\n" +
@@ -157,18 +189,33 @@ namespace source2MMBatch
             "	g_bFogEnabled \"1\"\n" +
             "	g_flDirectionalLightmapMinZ \"0.050\"\n" +
             "	g_flDirectionalLightmapStrength \"1.000\"\n" +
-            "	g_flMetalness \"0.000\"\n" +
             "	TextureNormal \"" + normal + "\"\n" +
             "	TextureRoughness \"" + rough + "\"\n" +
             "	g_nScaleTexCoordUByModelScaleAxis \"0\"\n" +
             "	g_nScaleTexCoordVByModelScaleAxis \"0\"\n" +
             "	g_vTexCoordOffset \"[0.000 0.000]\"\n" +
             "	g_vTexCoordScale \"[1.000 1.000]\"\n" +
-            "	g_vTexCoordScrollSpeed \"[0.000 0.000]\"\n" +
-            "}";
+            "	g_vTexCoordScrollSpeed \"[0.000 0.000]\"\n";
+
+            //PBR
+            if (!metal.Equals(""))
+                template_simple += "	F_METALNESS_TEXTURE 1\n" +
+                            "	TextureMetalness " + metal + "\n";
+            else
+                template_simple += "	g_flMetalness \"0.000\"\n";
+
+            if (!ambient.Equals(""))
+                template_simple += "	F_AMBIENT_OCCLUSION_TEXTURE 1\n" +
+                    "	TextureAmbientOcclusion " + ambient + "\n";
+
+            if (!metal.Equals("") && ambient.Equals(""))
+                template_simple += "	TextureAmbientOcclusion \"materials/default/default_ao.tga\"\n";
+
+            template_simple += "}";
+
             File.WriteAllText(path + file_name, template_simple);
         }
-        public static void MakeVMFComplex(string path, string file_name, string color, string normal, string rough)
+        public static void MakeVMFComplex(string path, string file_name, string color, string normal, string rough, string metal, string ambient)
         {
             string template_complex = "//THIS FILE WAS GENERATED BY TRIST'S BATCH TOOL \n" +
             "Layer0\n" +
@@ -191,8 +238,23 @@ namespace source2MMBatch
             "	g_nScaleTexCoordVByModelScaleAxis \"0\"\n" +
             "	g_vTexCoordOffset \"[0.000 0.000]\"\n" +
             "	g_vTexCoordScale \"[1.000 1.000]\"\n" +
-            "	g_vTexCoordScrollSpeed \"[0.000 0.000]\"\n" +
-            "}";
+            "	g_vTexCoordScrollSpeed \"[0.000 0.000]\"\n";
+
+            //PBR
+            if (!metal.Equals(""))
+                template_complex += "	F_METALNESS_TEXTURE 1\n" +
+                            "	TextureMetalness " + metal + "\n";
+            else
+                template_complex += "	g_flMetalness \"0.000\"\n";
+
+            if (!ambient.Equals(""))
+                template_complex += "	F_AMBIENT_OCCLUSION_TEXTURE 1\n" +
+                    "	TextureAmbientOcclusion " + ambient + "\n";
+
+            if (!metal.Equals("") && ambient.Equals(""))
+                template_complex += "	TextureAmbientOcclusion \"materials/default/default_ao.tga\"\n";
+
+            template_complex += "}";
             File.WriteAllText(path + file_name, template_complex);
         }
     }
