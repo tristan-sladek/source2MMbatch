@@ -44,7 +44,7 @@ namespace source2MMBatch
                 input = Console.ReadLine();
             }
             if (!input.Equals(""))
-                Extensions.FileType = input;
+                Extensions.Color = input;
 
             Console.WriteLine("Please enter your normal extension if any (using wildcards), or leave blank to use default. Default: [" + Extensions.Normal + "]");
             while (input.Length > 0 && !input.Contains("*"))
@@ -54,7 +54,7 @@ namespace source2MMBatch
             }
             input = Console.ReadLine();
             if (!input.Equals(""))
-                Extensions.FileType = input;
+                Extensions.Normal = input;
 
             Console.WriteLine("Please enter your rough extension if any (using wildcards), or leave blank to use default. Default: [" + Extensions.Rough + "]");
             while (input.Length > 0 && !input.Contains("*"))
@@ -64,7 +64,7 @@ namespace source2MMBatch
             }
             input = Console.ReadLine();
             if (!input.Equals(""))
-                Extensions.FileType = input;
+                Extensions.Rough = input;
 
             Directory.CreateDirectory(path + "\\generated_vmat");
 
